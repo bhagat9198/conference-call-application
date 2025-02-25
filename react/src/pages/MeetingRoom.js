@@ -15,6 +15,7 @@ import TalkingIndicator from "../Components/TalkingIndicator";
 import {Container} from "@mui/material";
 import {isMobile} from "react-device-detect";
 import {UnitTestContext} from "./AntMedia";
+import DrawingBoard from "Components/DrawingBoard";
 
 function debounce(fn, ms) {
   let timer;
@@ -89,9 +90,15 @@ const MeetingRoom = React.memo((props) => {
     }
   }
 
-  const pinnedParticipant = props?.allParticipants[props.currentPinInfo?.streamId];
-
+  console.log('MeetingRoom :: props.allParticipants :: ', props.allParticipants);
+  console.log('MeetingRoom :: props.currentPinInfo :: ', props.currentPinInfo);
+  
+  const pinnedParticipant = props?.allParticipants[props.currentPinInfo?.streamId] || props?.allParticipants[props.currentPinInfo?.type]
+  console.log('MeetingRoom :: pinnedParticipant :: ', pinnedParticipant);
+  
   const pinLayout = (typeof pinnedParticipant !== "undefined");
+  console.log('MeetingRoom :: pinLayout :: ', pinLayout);
+  
 
   /* istanbul ignore next */
   return (
@@ -115,28 +122,31 @@ const MeetingRoom = React.memo((props) => {
         />
 
         {props?.audioTracks.map((audioTrackAssignment, index) => (
-                <VideoCard
-                    key={index}
-                    trackAssignment={audioTrackAssignment}
-                    autoPlay
-                    name={""}
-                    style={{display: "none"}}
-                    streamName={props?.streamName}
-                    isPublished={props?.isPublished}
-                    isPlayOnly={props?.isPlayOnly}
-                    isMyMicMuted={props?.isMyMicMuted}
-                    isMyCamTurnedOff={props?.isMyCamTurnedOff}
-                    allParticipants={props?.allParticipants}
-                    setParticipantIdMuted={(participant) => props?.setParticipantIdMuted(participant)}
-                    turnOnYourMicNotification={props?.turnOnYourMicNotification}
-                    turnOffYourMicNotification={props?.turnOffYourMicNotification}
-                    turnOffYourCamNotification={props?.turnOffYourCamNotification}
-                    pinVideo={props?.pinVideo}
-                    isAdmin={props?.isAdmin}
-                    publishStreamId={props?.publishStreamId}
-                    localVideo={props?.localVideo}
-                    localVideoCreate={props?.localVideoCreate}
-                />
+          <>
+          <VideoCard
+              key={index}
+              trackAssignment={audioTrackAssignment}
+              autoPlay
+              name={""}
+              style={{display: "none"}}
+              streamName={props?.streamName}
+              isPublished={props?.isPublished}
+              isPlayOnly={props?.isPlayOnly}
+              isMyMicMuted={props?.isMyMicMuted}
+              isMyCamTurnedOff={props?.isMyCamTurnedOff}
+              allParticipants={props?.allParticipants}
+              setParticipantIdMuted={(participant) => props?.setParticipantIdMuted(participant)}
+              turnOnYourMicNotification={props?.turnOnYourMicNotification}
+              turnOffYourMicNotification={props?.turnOffYourMicNotification}
+              turnOffYourCamNotification={props?.turnOffYourCamNotification}
+              pinVideo={props?.pinVideo}
+              isAdmin={props?.isAdmin}
+              publishStreamId={props?.publishStreamId}
+              localVideo={props?.localVideo}
+              localVideoCreate={props?.localVideoCreate}
+          />
+          
+          </>
               ))}
               <div id="meeting-gallery" style={{height: "calc(100vh - 80px)"}}>
                 {pinLayout ?
@@ -165,9 +175,17 @@ const MeetingRoom = React.memo((props) => {
                         isAdmin={props?.isAdmin}
                         localVideo={props?.localVideo}
                         localVideoCreate={props?.localVideoCreate}
+
                     />)
                     :
-                    (<LayoutTiled
+                    props.drawingBoard ? 
+                      <DrawingBoard 
+                        width={gallerySize.w}
+                        height={gallerySize.h}
+                        canvasRef={props?.canvasRef}
+                      />
+                      :
+                    <LayoutTiled
                         width={gallerySize.w}
                         height={gallerySize.h}
                         videoTrackAssignments={props?.videoTrackAssignments}
@@ -192,8 +210,9 @@ const MeetingRoom = React.memo((props) => {
                         isAdmin={props?.isAdmin}
                         localVideo={props?.localVideo}
                         localVideoCreate={props?.localVideoCreate}
-                    />)
-                }
+                        drawingBoard={props?.drawingBoard}
+                    />}
+                
               </div>
 
               {props?.showEmojis && (
@@ -229,6 +248,8 @@ const MeetingRoom = React.memo((props) => {
                   handleStopScreenShare={props?.handleStopScreenShare}
                   showEmojis={props?.showEmojis}
                   setShowEmojis={props?.setShowEmojis}
+                  drawingBoard={props?.drawingBoard}
+                  setDrawingBoard={props?.setDrawingBoard}
                   numberOfUnReadMessages={props?.numberOfUnReadMessages}
                   toggleSetNumberOfUnreadMessages={props?.toggleSetNumberOfUnreadMessages}
                   messageDrawerOpen={props?.messageDrawerOpen}

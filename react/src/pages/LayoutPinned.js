@@ -6,7 +6,8 @@ import {isMobile} from "react-device-detect";
 import TalkingIndicator from "../Components/TalkingIndicator";
 
 function LayoutPinned (props) {
-
+  console.log("LayoutPinned :: props :: ", props);
+  
   const pinnedParticipant = props.videoTrackAssignments.find(e => e.streamId === props.pinnedParticipant?.streamId);
 
   let MAX_VIDEO_AT_SIDE = 4;

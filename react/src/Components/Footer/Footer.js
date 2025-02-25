@@ -21,6 +21,7 @@ import RequestPublishButton from "./Components/RequestPublishButton";
 import PublisherRequestListButton from "./Components/PublisherRequestListButton";
 import {useTheme} from "@mui/material/styles";
 import FakeReconnectButton from "./Components/FakeReconnectButton";
+import DrawButton from "./Components/DrawButton";
 
 const getCustomizedGridStyle = (theme) => {
   let customizedGridStyle = {
@@ -172,6 +173,17 @@ function Footer(props) {
                     />
                   </Grid>
                       : null}
+
+                  {(windowWidth > mobileBreakpoint) && (process.env.REACT_APP_FOOTER_REACTIONS_BUTTON_VISIBILITY === 'true') ? (
+                    <Grid item xs={0} style={{display: '-webkit-inline-box'}}>
+                      <DrawButton
+                          footer={true}
+                          rounded={false}
+                          drawingBoard ={props?.drawingBoard}
+                    setDrawingBoard={(showBoard) => props?.setDrawingBoard(showBoard)}
+                      />
+                    </Grid>)
+                    : null}
 
                   {(windowWidth > mobileBreakpoint) && (process.env.REACT_APP_FOOTER_REACTIONS_BUTTON_VISIBILITY === 'true') ? (
                     <Grid item xs={0} style={{display: '-webkit-inline-box'}}>

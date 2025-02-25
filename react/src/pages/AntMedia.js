@@ -320,6 +320,9 @@ function AntMedia(props) {
     //we are going to store number of unread messages to display on screen if user has not opened message component.
     const [numberOfUnReadMessages, setNumberOfUnReadMessages] = useState(0);
 
+    const [drawingBoard, setDrawingBoard] = React.useState(false);
+    const canvasRef = useRef(null);
+
     // hide or show the emoji reaction component.
     const [showEmojis, setShowEmojis] = React.useState(false);
 
@@ -500,6 +503,52 @@ function AntMedia(props) {
             //console.log("setParticipantUpdated due to videoTrackAssignments or allParticipants change.");
         }, 5000);
     }, [videoTrackAssignments, allParticipants]); // eslint-disable-line 
+
+
+    const webrtcAdaptor = useRef(null);
+    useEffect(() => {
+        console.log("Initializing WebRTC for drawing...");
+
+        // Wait for Excalidraw to render the canvas
+        setTimeout(() => {
+            const canvas = document.querySelector("canvas");
+            if (canvas) {
+                canvasRef.current = canvas;
+
+                // Capture the canvas stream
+                const stream = canvas.captureStream(30); // 30 FPS
+                console.log("🎥 Capturing canvas stream:", stream);
+
+                // Initialize WebRTC with canvas stream
+                webrtcAdaptor.current = new WebRTCAdaptor({
+                    websocket_url: websocketURL,
+                    localStream: stream, // Pass the captured stream
+                    peerconnection_config,
+                    sdp_constraints: {
+                        OfferToReceiveAudio: false,
+                        OfferToReceiveVideo: true, // Enable video streaming
+                    },
+                    debug: true,
+                    callback: (info, obj) => {
+                        console.log("WebRTC Callback:", info, obj);
+                    },
+                    callbackError: (error) => {
+                        console.error("WebRTC Error:", error);
+                    },
+                    purposeForTest: "drawing-board",
+                });
+            }
+        }, 1000); // Delay to ensure Excalidraw renders
+
+        return () => {
+            console.log("Cleaning up WebRTC peer...");
+            if (webrtcAdaptor.current) {
+                webrtcAdaptor.current.closePeerConnection();
+                webrtcAdaptor.current = null;
+            }
+        };
+    }, []);
+
 
     function handleUnauthorizedDialogExitClicked() {
 
@@ -1457,6 +1506,25 @@ function AntMedia(props) {
         }, 5000);
     }
 
+    function startDarwingSharing() {
+
+        var metaData = {
+            isMicMuted: false, isCameraOn: true, isScreenShared: true, playOnly: false, role: roleInit, isDrawing: true
+        }
+
+        let currentStreamName = streamName + " - Darwing";
+
+        screenShareStreamId.current = publishStreamId + "_draw"
+
+        screenShareWebRtcAdaptor.current.publish(screenShareStreamId.current, token, subscriberId, subscriberCode, currentStreamName, roomName, JSON.stringify(metaData), roleInit)
+
+        setScreenSharingInProgress(true);
+
+        setTimeout(() => {
+            setScreenSharingInProgress(false);
+        }, 5000);
+    }
+
     React.useEffect(() => {
         if (isPlayOnly && enterDirectly && initialized) {
             let streamId = makeid(10);
@@ -1931,6 +1999,39 @@ function AntMedia(props) {
 
         setParticipantUpdated(!participantUpdated);
     };
+
+    function unpinDrawingBoard() {
+        console.log("Unpinning DrawingBoard");
+        setCurrentPinInfo(null); // Reset the pin info
+        // Additional logic to notify peers or update UI can go here
+    }
+
+    function pinDrawingBoard() {
+        console.log("*** Pin request for DrawingBoard");
+
+        // Check if the drawing board is already pinned
+        if (currentPinInfo && currentPinInfo.type === 'drawingBoard') {
+            console.log("DrawingBoard is already pinned.");
+            return;
+        }
+
+        // If there is a currently pinned item, unpin it
+        if (currentPinInfo) {
+            console.log("Unpinning current item: ", currentPinInfo);
+            unpinDrawingBoard(); // Define this function to handle unpinning
+        }
+
+        // Set the current pin info for the drawing board
+        let pinInfo = { type: 'drawingBoard', pinningTime: Date.now() };
+        setCurrentPinInfo(pinInfo);
+
+        // Optionally notify other peers about the pinning action
+        handleNotifyPinUser('drawingBoard');
+
+        // Update the participant state if necessary
+        setParticipantUpdated(!participantUpdated);
+    }
+
 
     function checkAndAssignVideoTrack(videoLabel, streamId) {
         let assigningVideoTrack = videoTrackAssignments.find(el => el.videoLabel == videoLabel);
@@ -3297,6 +3398,8 @@ function AntMedia(props) {
                     fakeReconnect,
                     showEmojis,
                     setShowEmojis,
+                    drawingBoard,
+                    setDrawingBoard,
                     isMuteParticipantDialogOpen,
                     setMuteParticipantDialogOpen,
                     participantIdMuted,
@@ -3497,6 +3600,14 @@ function AntMedia(props) {
                             showEmojis={showEmojis}
                             sendReactions={(reaction) => sendReactions(reaction)}
                             setShowEmojis={(show) => setShowEmojis(show)}
+                            setDrawingBoard={(show) => {
+                                setDrawingBoard(show);
+                                // if(show) {
+                                //     pinDrawingBoard()
+                                // }
+                            }}
+                            canvasRef={canvasRef}
+                            drawingBoard={drawingBoard}
                             globals={globals}
                             audioTracks={audioTracks}
                             participantIdMuted={participantIdMuted}
