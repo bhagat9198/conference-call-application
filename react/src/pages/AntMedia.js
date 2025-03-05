@@ -320,6 +320,11 @@ function AntMedia(props) {
     //we are going to store number of unread messages to display on screen if user has not opened message component.
     const [numberOfUnReadMessages, setNumberOfUnReadMessages] = useState(0);
 
+
+    const[drawings, setDrawings] = useState(null)
+    const [drawingBoard, setDrawingBoard] = React.useState(false);
+    const [drawingBoardConfig, setDrawingBoardConfig] = React.useState(null);
+
     // hide or show the emoji reaction component.
     const [showEmojis, setShowEmojis] = React.useState(false);
 
@@ -490,7 +495,7 @@ function AntMedia(props) {
     const [isNoSreamExist, setIsNoSreamExist] = React.useState(false);
 
 
-    const {t} = useTranslation();
+    const { t } = useTranslation();
 
     const theme = useTheme();
 
@@ -500,6 +505,209 @@ function AntMedia(props) {
             //console.log("setParticipantUpdated due to videoTrackAssignments or allParticipants change.");
         }, 5000);
     }, [videoTrackAssignments, allParticipants]); // eslint-disable-line 
+
+    const drawingBoardRef = useRef({
+        active: false,
+        streamId: null,
+        pinInfo: null,
+        addedToParticipants: false,
+        pinned: false
+    });
+
+    useEffect(() => {
+        console.log("AntMedia :: useEffect :: drawingBoard");
+        
+        if (drawingBoard) {
+          // Create a drawing board participant with a unique ID
+          const drawingBoardStreamId = `drawing_board_${publishStreamId}`;
+          
+          // Store drawing board info in ref for persistence
+          drawingBoardRef.current = {
+            active: true,
+            streamId: drawingBoardStreamId,
+            pinInfo: {
+              videoLabel: "drawingBoard", 
+              streamId: drawingBoardStreamId, 
+              pinningTime: Date.now(),
+              isDrawingBoard: true
+            },
+            addedToParticipants: false,
+            pinned: false
+          };
+          
+          // Add to allParticipants with proper metadata
+          let allParticipantsTemp = { ...allParticipants };
+          const broadcastObject = {
+            name: "Drawing Board",
+            streamId: drawingBoardStreamId,
+            metaData: JSON.stringify({ 
+              isCameraOn: true,
+              isMicMuted: true,
+              isScreenShared: true,
+              isDrawingBoard: true 
+            }),
+            parsedMetaData: { 
+              isScreenShared: true,
+              isDrawingBoard: true
+            },
+            status: "livestream",
+            role: roleInit
+          };
+          
+          allParticipantsTemp[drawingBoardStreamId] = broadcastObject;
+          setAllParticipants(allParticipantsTemp);
+          drawingBoardRef.current.addedToParticipants = true;
+    
+          // Pin the drawing board
+          let pinInfo = { 
+            videoLabel: "drawingBoard", 
+            streamId: drawingBoardStreamId, 
+            pinningTime: Date.now(),
+            isDrawingBoard: true
+          };
+          
+          setCurrentPinInfo(pinInfo);
+          drawingBoardRef.current.pinned = true;
+          
+          // Notify other participants
+          turnOnDrawingNotification(publishStreamId);
+        } else {
+          // If drawing board is being turned off
+          const drawingBoardStreamId = `drawing_board_${publishStreamId}`;
+          
+          // Check if we need to unpin and remove the drawing board
+          if (currentPinInfo?.streamId === drawingBoardStreamId) {
+            setCurrentPinInfo(null);
+          }
+          
+          // Remove from allParticipants if it exists
+          if (allParticipants[drawingBoardStreamId]) {
+            let allParticipantsTemp = { ...allParticipants };
+            delete allParticipantsTemp[drawingBoardStreamId];
+            setAllParticipants(allParticipantsTemp);
+          }
+          
+          // Reset drawing board ref
+          drawingBoardRef.current = {
+            active: false,
+            streamId: null,
+            pinInfo: null,
+            addedToParticipants: false,
+            pinned: false
+          };
+          
+          // Notify other participants
+          turnOffDrawingNotification(publishStreamId);
+        }
+    }, [drawingBoard]); // eslint-disable-line
+
+    // Add this effect to ensure drawing board stays in allParticipants
+    useEffect(() => {
+        console.log("AntMedia :: useEffect :: drawingBoard, publishStreamId, currentPinInfo");
+        
+        // If drawing board is active, make sure it's in allParticipants
+        if (drawingBoard && publishStreamId) {
+        const drawingBoardStreamId = `drawing_board_${publishStreamId}`;
+        
+        // Check if drawing board is missing from allParticipants
+        if (!allParticipants[drawingBoardStreamId]) {
+            console.log("Re-adding drawing board to allParticipants");
+            
+            // Add to allParticipants with proper metadata
+            let allParticipantsTemp = { ...allParticipants };
+            const broadcastObject = {
+            name: "Drawing Board",
+            streamId: drawingBoardStreamId,
+            metaData: JSON.stringify({ 
+                isCameraOn: true,
+                isMicMuted: true,
+                isScreenShared: true,
+                isDrawingBoard: true 
+            }),
+            parsedMetaData: { 
+                isScreenShared: true,
+                isDrawingBoard: true
+            },
+            status: "livestream",
+            role: roleInit
+            };
+            
+            allParticipantsTemp[drawingBoardStreamId] = broadcastObject;
+            // Use a ref to track if we've already updated allParticipants to prevent loops
+            if (!drawingBoardRef.current.addedToParticipants) {
+            setAllParticipants(allParticipantsTemp);
+            drawingBoardRef.current.addedToParticipants = true;
+            }
+        }
+        
+        // Ensure drawing board is pinned
+        if (!currentPinInfo || currentPinInfo.streamId !== drawingBoardStreamId) {
+            console.log("Re-pinning drawing board");
+            let pinInfo = { 
+            videoLabel: "drawingBoard", 
+            streamId: drawingBoardStreamId, 
+            pinningTime: Date.now(),
+            isDrawingBoard: true
+            };
+            // Only update if needed to prevent loops
+            if (!drawingBoardRef.current.pinned) {
+            setCurrentPinInfo(pinInfo);
+            drawingBoardRef.current.pinned = true;
+            }
+        }
+        }
+    }, [drawingBoard, publishStreamId, currentPinInfo]); // Remove allParticipants from dependencies
+
+    useEffect(() => {
+        if (drawingBoard) {
+            ensureDrawingBoardMaintained();
+        }
+    }, [Object.keys(allParticipants).length]); 
+
+    function ensureDrawingBoardMaintained() {
+        if (drawingBoard && publishStreamId) {
+            const drawingBoardStreamId = `drawing_board_${publishStreamId}`;
+            
+            // Check if drawing board is missing from allParticipants
+            if (!allParticipants[drawingBoardStreamId]) {
+                console.log("Ensuring drawing board is maintained in participants list");
+                
+                // Add to allParticipants with proper metadata
+                let allParticipantsTemp = { ...allParticipants };
+                const broadcastObject = {
+                    name: "Drawing Board",
+                    streamId: drawingBoardStreamId,
+                    metaData: JSON.stringify({ 
+                        isCameraOn: true,
+                        isMicMuted: true,
+                        isScreenShared: true,
+                        isDrawingBoard: true 
+                    }),
+                    parsedMetaData: { 
+                        isScreenShared: true,
+                        isDrawingBoard: true
+                    },
+                    status: "livestream",
+                    role: roleInit
+                };
+                
+                allParticipantsTemp[drawingBoardStreamId] = broadcastObject;
+                setAllParticipants(allParticipantsTemp);
+            }
+            
+            // Ensure drawing board is pinned
+            if (!currentPinInfo || currentPinInfo.streamId !== drawingBoardStreamId) {
+                console.log("Ensuring drawing board is pinned");
+                let pinInfo = { 
+                    videoLabel: "drawingBoard", 
+                    streamId: drawingBoardStreamId, 
+                    pinningTime: Date.now(),
+                    isDrawingBoard: true
+                };
+                setCurrentPinInfo(pinInfo);
+            }
+        }
+    }
 
     function handleUnauthorizedDialogExitClicked() {
 
@@ -593,10 +801,6 @@ function AntMedia(props) {
         }
     }
 
-    /*
-
-     */
-
     function setAndFillPlayStatsList(obj) {
         console.log("obj", obj);
         let tempStatsList = statsList.current;
@@ -633,7 +837,7 @@ function AntMedia(props) {
     }
 
     function setAndFillPublishStatsList(obj) {
-        console.log("obj", obj);
+        console.log("AntMedia :: setAndFillPublishStatsList :: obj :: ", obj);
         let tempStatsList = statsList.current;
         let tempStats = {};
         tempStats.videoRoundTripTime = obj.videoRoundTripTime;
@@ -1250,7 +1454,7 @@ function AntMedia(props) {
             name: "name_" + suffix,
             streamId: "streamId_" + suffix,
             metaData: JSON.stringify({ isCameraOn: false }),
-            parseMetaData: {isScreenShared: undefined},
+            parseMetaData: { isScreenShared: undefined },
             isFake: true,
             status: "livestream"
         };
@@ -1324,7 +1528,7 @@ function AntMedia(props) {
 
         broadcastObject.parsedMetaData = metaData;
         let filteredBroadcastObject = filterBroadcastObject(broadcastObject);
-        if(isPaged) {
+        if (isPaged) {
             filteredBroadcastObject.status = IN_PAGE;
         }
         else {
@@ -1455,6 +1659,76 @@ function AntMedia(props) {
         setTimeout(() => {
             setScreenSharingInProgress(false);
         }, 5000);
+    }
+
+    const drawingUpdateThrottleTimeout = useRef(null);
+    const drawingUpdateQueue = useRef([]);
+
+    function drawingUpdated(config) {
+        console.log("drawingUpdated :: DRAWING_UPDATED :: config :: ", config);
+        
+        // Always send the complete state immediately
+        // This ensures all peers have the same drawing state
+        handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+    }
+
+    function drawingUpdatedOnEveryChange(config) {
+        console.log("drawingUpdated :: DRAWING_UPDATED :: config :: ", config);
+        
+        // Check if this is a complete state update
+        const isCompleteStateUpdate = config.completeState !== undefined;
+        
+        // For complete state updates, send immediately without throttling
+        if (isCompleteStateUpdate) {
+            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+            return;
+        }
+        
+        // For active drawing updates (when a stroke is being drawn), send immediately
+        if (config.updated && config.updated.length > 0 && config.updated.some(shape => !shape.isComplete)) {
+            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, {
+                added: [],
+                updated: config.updated,
+                removed: []
+            });
+            return;
+        }
+        
+        // Throttle regular updates to avoid overwhelming the network
+        if (!drawingUpdateThrottleTimeout.current) {
+            // Send the update immediately
+            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+            
+            // Set a throttle timeout
+            drawingUpdateThrottleTimeout.current = setTimeout(() => {
+                drawingUpdateThrottleTimeout.current = null;
+                
+                // Process any queued updates
+                if (drawingUpdateQueue.current.length > 0) {
+                    // Combine all queued updates into one
+                    const combinedUpdate = {
+                        added: [],
+                        updated: [],
+                        removed: []
+                    };
+                    
+                    drawingUpdateQueue.current.forEach(update => {
+                        if (update.added) combinedUpdate.added.push(...update.added);
+                        if (update.updated) combinedUpdate.updated.push(...update.updated);
+                        if (update.removed) combinedUpdate.removed.push(...update.removed);
+                    });
+                    
+                    // Send the combined update
+                    handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, combinedUpdate);
+                    
+                    // Clear the queue
+                    drawingUpdateQueue.current = [];
+                }
+            }, 50);
+        } else {
+            // If we're throttled, queue the update
+            drawingUpdateQueue.current.push(config);
+        }
     }
 
     React.useEffect(() => {
@@ -1877,66 +2151,92 @@ function AntMedia(props) {
         pinVideo(videoTrackAssignments[0].streamId)
     }
 
-
     function unpinVideo() {
         console.log("*** unpin request for ");
         console.trace();
+        
+        // Don't unpin if it's a drawing board and drawing is active
+        if (drawingBoard && currentPinInfo?.streamId === drawingBoardRef.current?.streamId) {
+            console.log("Cannot unpin drawing board while drawing is active");
+            return;
+        }
+        
         webRTCAdaptor?.assignVideoTrack(currentPinInfo?.videoLabel, currentPinInfo?.streamId, false);
         console.log(currentPinInfo?.videoLabel + " assigment removed from " + currentPinInfo?.streamId);
         setCurrentPinInfo(null);
         setParticipantUpdated(!participantUpdated);
     }
 
-    function pinVideo(streamId){
-        console.log("*** pin request for "+streamId);
+    function pinVideo(streamId) {
+        console.log("AntMedia :: pinVideo :: streamId :: ", streamId);
         console.trace();
+        
+        // If drawing is active, only allow pinning the drawing board
+        if (drawingBoard && streamId !== drawingBoardRef.current.streamId) {
+            console.log("Cannot pin other participants while drawing board is active");
+            return;
+        }
+        
         // id is for pinning user.
         let videoLabel;
         let broadcastObject = allParticipants[streamId];
-
+    
         if (isNull(broadcastObject)) {
             console.error("Cannot find broadcast object for streamId: " + streamId);
             webRTCAdaptor?.getBroadcastObject(streamId);
             return;
         }
-
-        if(!isNull(currentPinInfo)) {
+    
+        if (!isNull(currentPinInfo)) {
             console.log(currentPinInfo?.videoLabel + " assigment will be removed from " + currentPinInfo?.streamId);
             unpinVideo();
         }
-
+    
         // if there is no pinned video we are going to pin the targeted user.
         // and we need to inform pinned user.
         if (streamId === publishStreamId) {
             videoLabel = "localVideo";
         }
-
+    
+        // Check if this is a drawing board
+        const isDrawingBoard = streamId.includes('drawing_board');
+        
         if (videoLabel !== "localVideo") {
             // if we are publisher, the first video track is reserved for local video, so we start from 1
             // if we are play only, the first video track is not reserved for local video, so we start from 0
             let videoTrackAssignmentStartIndex = (isPlayOnly) ? 0 : 1;
-
+    
             videoLabel = videoTrackAssignments[videoTrackAssignmentStartIndex]?.videoLabel;
-
-            checkAndAssignVideoTrack(videoLabel, streamId);         
-
+    
+            // For drawing board, we don't need to assign video track
+            if (!isDrawingBoard) {
+                checkAndAssignVideoTrack(videoLabel, streamId);
+            }
         }
-
+    
         allParticipants[streamId] = broadcastObject;
-
-        handleNotifyPinUser(streamId !== publishStreamId ? streamId : publishStreamId);
-
-        let pinInfo = {videoLabel:videoLabel, streamId:streamId, pinningTime:Date.now()}
+    
+        // Only notify for regular participants, not drawing boards
+        if (!isDrawingBoard) {
+            handleNotifyPinUser(streamId !== publishStreamId ? streamId : publishStreamId);
+        }
+    
+        let pinInfo = { 
+            videoLabel: videoLabel, 
+            streamId: streamId, 
+            pinningTime: Date.now(),
+            isDrawingBoard: isDrawingBoard
+        };
+        
         setCurrentPinInfo(pinInfo);
-
         setParticipantUpdated(!participantUpdated);
-    };
+    }
 
     function checkAndAssignVideoTrack(videoLabel, streamId) {
         let assigningVideoTrack = videoTrackAssignments.find(el => el.videoLabel == videoLabel);
 
         //if it is already assigned to the stream id, just return  
-        if(assigningVideoTrack.isReserved && assigningVideoTrack.streamId === streamId) {
+        if (assigningVideoTrack.isReserved && assigningVideoTrack.streamId === streamId) {
             console.log(videoLabel + " is assigned to " + streamId);
             return;
         }
@@ -1950,7 +2250,7 @@ function AntMedia(props) {
                 checkAndAssignVideoTrack(videoLabel, streamId)
             }, 1000);
         }
-        
+
     }
 
     function turnOffYourCamNotification(participantId) {
@@ -2014,6 +2314,17 @@ function AntMedia(props) {
     function turnOffYourMicNotification(participantId) {
         handleSendNotificationEvent("TURN_YOUR_MIC_OFF", publishStreamId, {
             streamId: participantId, senderStreamId: publishStreamId
+        });
+    };
+
+    function turnOnDrawingNotification(participantId) {
+        handleSendNotificationEvent("DRAWING_STARTED", `${publishStreamId}`, {
+           
+        });
+    };
+    function turnOffDrawingNotification(participantId) {
+        handleSendNotificationEvent("DRAWING_ENDED", `${publishStreamId}`, {
+           
         });
     };
 
@@ -2285,11 +2596,61 @@ function AntMedia(props) {
     }, [isPlayOnly]);
 
     function handleNotificationEvent(obj) {
+        console.log("AntMedia :: handleNotificationEvent :: obj :: ", obj);
+        
         var notificationEvent = JSON.parse(obj.data);
+        if(notificationEvent.eventType != "AUDIO_TRACK_ASSIGNMENT") {
+            console.log("AntMedia :: handleNotificationEvent :: notificationEvent :: aaa :: ", notificationEvent);
+        }
+        
         //console.log("handleNotificationEvent:", notificationEvent);
         if (notificationEvent != null && typeof notificationEvent == "object") {
             var eventStreamId = notificationEvent.streamId;
             var eventType = notificationEvent.eventType;
+
+            if (drawingBoard && drawingBoardRef.current.active) {
+                const drawingBoardStreamId = `drawing_board_${publishStreamId}`;
+                
+                // Check if drawing board is missing from allParticipants
+                if (!allParticipants[drawingBoardStreamId]) {
+                    console.log("Re-adding drawing board to allParticipants during notification event");
+                    
+                    // Add to allParticipants with proper metadata
+                    let allParticipantsTemp = { ...allParticipants };
+                    const broadcastObject = {
+                        name: "Drawing Board",
+                        streamId: drawingBoardStreamId,
+                        metaData: JSON.stringify({ 
+                            isCameraOn: true,
+                            isMicMuted: true,
+                            isScreenShared: true,
+                            isDrawingBoard: true 
+                        }),
+                        parsedMetaData: { 
+                            isScreenShared: true,
+                            isDrawingBoard: true
+                        },
+                        status: "livestream",
+                        role: roleInit
+                    };
+                    
+                    allParticipantsTemp[drawingBoardStreamId] = broadcastObject;
+                    setAllParticipants(allParticipantsTemp);
+                }
+                
+                // Ensure drawing board is pinned
+                if (!currentPinInfo || currentPinInfo.streamId !== drawingBoardStreamId) {
+                    console.log("Re-pinning drawing board during notification event");
+                    let pinInfo = { 
+                        videoLabel: "drawingBoard", 
+                        streamId: drawingBoardStreamId, 
+                        pinningTime: Date.now(),
+                        isDrawingBoard: true
+                    };
+                    setCurrentPinInfo(pinInfo);
+                }
+            }
+
 
             if (eventType === "CAM_TURNED_OFF" || eventType === "CAM_TURNED_ON" || eventType === "MIC_MUTED" || eventType === "MIC_UNMUTED") {
                 webRTCAdaptor?.getBroadcastObject(eventStreamId);
@@ -2367,7 +2728,7 @@ function AntMedia(props) {
                 }
             } else if (eventType === "VIDEO_TRACK_ASSIGNMENT_LIST") {
 
-                // There are 2 operations here:
+                 // There are 2 operations here:
                 // 1. VTA available in both sides -> Update
                 // 2. VTA available in the current state but not in the new list -> Remove
                 // We don't need to add new VTA because it will be added by the handlePlayVideo function
@@ -2375,6 +2736,45 @@ function AntMedia(props) {
                 let receivedVideoTrackAssignments = notificationEvent.payload;
 
                 console.info("VIDEO_TRACK_ASSIGNMENT_LIST -> ", JSON.stringify(receivedVideoTrackAssignments));
+
+                const previousStreamIds = videoTrackAssignments
+                .filter(vta => !vta.isMine && vta.streamId)
+                .map(vta => vta.streamId);
+            
+            const newStreamIds = receivedVideoTrackAssignments
+                .filter(vta => vta.trackId && !previousStreamIds.includes(vta.trackId))
+                .map(vta => vta.trackId);
+
+                if (newStreamIds.length > 0 && drawingBoard && publishStreamId) {
+                    console.log("New participants detected in track assignments, sending DRAWING_STARTED event");
+                    setTimeout(() => {
+                        handleSendNotificationEvent("DRAWING_STARTED", roomName, {
+                            senderStreamId: publishStreamId
+                        });
+                        
+                        // If there are existing drawings, also send the current drawing state
+                        // if (drawings && Object.keys(drawings).length > 0) {
+                        //     handleSendNotificationEvent("DRAWING_UPDATED", roomName, {
+                        //         added: drawings,
+                        //         updated: {},
+                        //         removed: []
+                        //     });
+                        // }
+
+                        if (drawings && Object.keys(drawings).length > 0) {
+                            handleSendNotificationEvent("DRAWING_UPDATED", roomName, {
+                                completeState: drawings.completeState || drawings
+                            });
+                        }
+
+                        
+                    }, 1000);
+                }
+
+                // Save drawing board info before updating participants
+                const drawingBoardStreamId = drawingBoard ? `drawing_board_${publishStreamId}` : null;
+                const drawingBoardParticipant = drawingBoardStreamId ? allParticipants[drawingBoardStreamId] : null;
+                const currentPinInfoBackup = currentPinInfo;
 
                 // Remove empty trackId assignments
                 //receivedVideoTrackAssignments = receivedVideoTrackAssignments.filter((vta) => vta.trackId !== "");
@@ -2401,9 +2801,8 @@ function AntMedia(props) {
                         } else {
                             tempVideoTrackAssignmentsNew.push(tempVideoTrackAssignment);
                         }
-                    } 
+                    }
 
-                    
                     //check the assigned stream id still has assignment. If not remove from all participants.
                     //This is the way to understand pinned but not paged streams leaving. For example screen share 
                     if(!tempVideoTrackAssignment.isMine && tempVideoTrackAssignment.streamId !== roomName) {
@@ -2422,8 +2821,13 @@ function AntMedia(props) {
                                 broadcastObject.statusUpdateTime = Date.now();
                             }
                         }
-                    }                    
+                    }
                 });
+
+                // Restore drawing board participant if it exists
+                if (drawingBoard && drawingBoardParticipant) {
+                    tempAllParticipants[drawingBoardStreamId] = drawingBoardParticipant;
+                }
 
                 if (!_.isEqual(allParticipants, tempAllParticipants)) {
                     setAllParticipants(tempAllParticipants);
@@ -2447,11 +2851,23 @@ function AntMedia(props) {
 
                 // check if there is any difference between old and new assignments
                 //if (!_.isEqual(currentVideoTrackAssignments, videoTrackAssignments)) {
-                    setVideoTrackAssignments(currentVideoTrackAssignments);
-                    requestSyncAdministrativeFields();
-                    setParticipantUpdated(!participantUpdated);
-                //}
-
+                setVideoTrackAssignments(currentVideoTrackAssignments);
+                requestSyncAdministrativeFields();
+                setParticipantUpdated(!participantUpdated);
+                
+                // Restore drawing board pin if needed
+                if (drawingBoard && drawingBoardStreamId && 
+                    (!currentPinInfo || currentPinInfo.streamId !== drawingBoardStreamId)) {
+                    console.log("Restoring drawing board pin after track assignment update");
+                    setTimeout(() => {
+                        setCurrentPinInfo(currentPinInfoBackup || {
+                            videoLabel: "drawingBoard", 
+                            streamId: drawingBoardStreamId, 
+                            pinningTime: Date.now(),
+                            isDrawingBoard: true
+                        });
+                    }, 100);
+                }
             } else if (eventType === "AUDIO_TRACK_ASSIGNMENT") {
                 clearInterval(timeoutRef.current);
                 timeoutRef.current = setTimeout(() => {
@@ -2461,6 +2877,34 @@ function AntMedia(props) {
                 updateTalkers(notificationEvent);
             } else if (eventType === "TRACK_LIST_UPDATED") {
                 console.info("TRACK_LIST_UPDATED -> ", obj);
+
+                // // When track list is updated and drawing board is active, send DRAWING_STARTED event
+                if (drawingBoard && publishStreamId) {
+                    console.log("Track list updated, sending DRAWING_STARTED event to new participants");
+                    // Small delay to ensure the participant is fully connected
+                    setTimeout(() => {
+                        handleSendNotificationEvent("DRAWING_STARTED", roomName, {
+                            senderStreamId: publishStreamId
+                        });
+                        
+                        // If there are existing drawings, also send the current drawing state
+                        // if (drawings && Object.keys(drawings).length > 0) {
+                        //     handleSendNotificationEvent("DRAWING_UPDATED", roomName, {
+                        //         added: drawings,
+                        //         updated: {},
+                        //         removed: []
+                        //     });
+                        // }
+
+
+                        if (drawings && Object.keys(drawings).length > 0) {
+                            handleSendNotificationEvent("DRAWING_UPDATED", roomName, {
+                                completeState: drawings.completeState || drawings
+                            });
+                        }
+
+                    }, 1000);
+                }
 
                 webRTCAdaptor?.getSubtrackCount(roomName, null, null);
                 webRTCAdaptor?.getSubtracks(roomName, null, globals.participantListPagination.offset, globals.participantListPagination.pageSize);
@@ -2528,6 +2972,34 @@ function AntMedia(props) {
                 if (role === WebinarRoles.Listener && notificationEvent.senderStreamId === publishStreamId) {
                     showInfoSnackbarWithLatency(t("Your request to become a speaker is rejected"));
                 }
+            } else if (eventType === "DRAWING_STARTED") {
+                setDrawingBoard(true);
+            } else if (eventType === "DRAWING_ENDED") {
+                setDrawingBoard(false);
+            } else if (eventType === "DRAWING_UPDATED") {
+                // console.log("handleNotificationEvent :: DRAWING_UPDATED :: ", notificationEvent);
+                // setDrawingBoardConfig({
+                //     added: notificationEvent.added,
+                //     updated: notificationEvent.updated,
+                //     removed: notificationEvent.removed
+                // });
+
+                console.log("handleNotificationEvent :: DRAWING_UPDATED :: ", notificationEvent);
+                
+                // Check if we received a complete state update
+                if (notificationEvent.completeState) {
+                    setDrawingBoardConfig({
+                        completeState: notificationEvent.completeState
+                    });
+                } else {
+                    // Fallback to the old format for backward compatibility
+                    setDrawingBoardConfig({
+                        added: notificationEvent.added,
+                        updated: notificationEvent.updated,
+                        removed: notificationEvent.removed
+                    });
+                }
+                
             }
         }
     }
@@ -2574,23 +3046,23 @@ function AntMedia(props) {
 
     function checkScreenSharingStatus() {
         const broadcastObjectsArray = Object.values(allParticipants);
-        
+
         //if currently pinned broadcast is not in all participants(we added also video track assigned ones)
         //then unpin it. It may leave for example in schreen share
-        if(!isNull(currentPinInfo)) {
+        if (!isNull(currentPinInfo)) {
             let broadcastObject = broadcastObjectsArray.find(el => el.streamId == currentPinInfo.streamId);
-            console.log("sill "+currentPinInfo.streamId+" broadcastObject:", broadcastObject)
+            console.log("sill " + currentPinInfo.streamId + " broadcastObject:", broadcastObject)
             if (isNull(broadcastObject) || (broadcastObject.status == IN_CACHE && Date.now() - broadcastObject.statusUpdateTime > 3000)) {
                 unpinVideo();
             }
         }
-        
+
         let lastlySharedScreen;
         let lastlySharedScreenTime = 0;
         //if the updated all participants(we added also video trcak assigned ones) has a screen share not pinned, pin it
         broadcastObjectsArray.forEach((broadcastObject) => {
-            if (broadcastObject.parsedMetaData.isScreenShared === true 
-                && broadcastObject.startTime > lastlySharedScreenTime) 
+            if (broadcastObject.parsedMetaData.isScreenShared === true
+                && broadcastObject.startTime > lastlySharedScreenTime)
             {
                 lastlySharedScreen = broadcastObject.streamId;
                 lastlySharedScreenTime = broadcastObject.startTime;
@@ -2676,6 +3148,8 @@ function AntMedia(props) {
     });
 
     const handleSendNotificationEvent = React.useCallback((eventType, publishStreamId, info) => {
+        console.log("AntMedia :: handleSendNotificationEvent :: ", eventType, publishStreamId, info);
+        
         let notEvent = {
             streamId: publishStreamId, eventType: eventType, ...(info ? info : {}),
         };
@@ -2766,7 +3240,7 @@ function AntMedia(props) {
 
         let allParticipantsTemp = { ...allParticipants };
         allParticipantsTemp[publishStreamId] = {
-            streamId: publishStreamId, name: "You", parsedMetaData: {isScreenShared: false}, status: "livestream"
+            streamId: publishStreamId, name: "You", parsedMetaData: { isScreenShared: false }, status: "livestream"
         };
 
         if (!_.isEqual(allParticipantsTemp, allParticipants)) {
@@ -3297,6 +3771,10 @@ function AntMedia(props) {
                     fakeReconnect,
                     showEmojis,
                     setShowEmojis,
+                    drawingBoard,
+                    setDrawingBoard,
+                    drawingBoardConfig,
+                    drawingUpdated,
                     isMuteParticipantDialogOpen,
                     setMuteParticipantDialogOpen,
                     participantIdMuted,
@@ -3497,6 +3975,19 @@ function AntMedia(props) {
                             showEmojis={showEmojis}
                             sendReactions={(reaction) => sendReactions(reaction)}
                             setShowEmojis={(show) => setShowEmojis(show)}
+                            drawings={drawings}
+                            setDrawings={setDrawings}
+                            drawingBoardConfig={drawingBoardConfig}
+                            drawingUpdated={config => drawingUpdated(config)}
+                            setDrawingBoard={(show) => {
+                                setDrawingBoard(show);
+                                if(show) {
+                                    turnOnDrawingNotification('streamId')
+                                } else {
+                                    turnOffDrawingNotification('streamId')
+                                }
+                            }}
+                            drawingBoard={drawingBoard}
                             globals={globals}
                             audioTracks={audioTracks}
                             participantIdMuted={participantIdMuted}

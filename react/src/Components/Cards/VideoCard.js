@@ -25,7 +25,7 @@ function VideoCard(props) {
     const theme = useTheme();
 
     const refVideo = useCallback((node) => {
-        if (node && props.trackAssignment.track) {
+        if (node && props.trackAssignment.track && !props?.drawingBoard) {
             const newStream = new MediaStream([props.trackAssignment.track]);
             if (node.srcObject !== newStream) {
                 node.srcObject = newStream;
@@ -81,6 +81,8 @@ function VideoCard(props) {
     );
 
     const AdministrativeButtons = ({ micMuted, useAvatar }) => {
+        if(props?.drawingBoard) return null;
+
         const handleToggleMic = () => {
             const participant = {
                 streamId: props.trackAssignment.streamId,
@@ -247,6 +249,7 @@ function VideoCard(props) {
     );
 
     React.useEffect(() => {
+        if(props?.drawingBoard) return;
         let tempLocalVideo = document.getElementById(
             typeof props?.publishStreamId === "undefined"
                 ? "localVideo"
@@ -316,7 +319,7 @@ function VideoCard(props) {
         overflow: "hidden",
     }), [props.isMobileView]);
 
-    return isMine || isVideoTrack ? (
+    return isMine || isVideoTrack || props?.drawingBoard ? (
         <>
         <Grid
             container
@@ -337,6 +340,13 @@ function VideoCard(props) {
                 {renderAvatarOrPlayer()}
                 {renderParticipantStatus()}
                 {overlayVideoTitle()}
+                {props?.drawingBoard && (
+                        <DrawingBoar
+                            width={props?.width} height={props?.height}
+                            drawingBoardConfig={props?.drawingBoardConfig}
+                            drawingUpdated={props?.drawingUpdated}
+                        />
+                )}
             </div>
         </Grid>
         </>

@@ -3,6 +3,7 @@ import VideoCard from "Components/Cards/VideoCard";
 import OthersCard from "Components/Cards/OthersCard";
 import React from "react";
 import TalkingIndicator from "../Components/TalkingIndicator";
+import DrawingBoard from "Components/DrawingBoard";
 
 function calculateLayout(
   containerWidth,
