@@ -1,17 +1,39 @@
 import { useEffect, useRef, useState, memo, useCallback } from "react";
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
+import { useSyncDemo } from '@tldraw/sync'
 
-// Completely isolated TLDraw component that never re-renders
-const StableTldraw = memo(function StableTldraw({ onPointerUp, onMount, onPointerMove, onPointerDown }) {
+const StableTldraw = memo(function StableTldraw({ onPointerUp, onMount, onPointerDown }) {
   console.log("StableTldraw :: Initial Render Only");
+  const store = useSyncDemo({ roomId: 'myapp-dfghghfghfg' })
+  // Store the event handlers in refs to always reference the latest version
+  const pointerUpRef = useRef(onPointerUp);
+  const pointerDownRef = useRef(onPointerDown);
+
+  // Update refs when props change
+  useEffect(() => {
+    pointerUpRef.current = onPointerUp;
+    pointerDownRef.current = onPointerDown;
+  }, [onPointerUp, onPointerDown]);
+  
+
   return (
     <Tldraw
+    persistenceKey="example"
+      store={store}
       key="truly-stable-tldraw-instance"
-      onPointerUp={onPointerUp}
-      onPointerMove={onPointerMove}
-      onPointerDown={onPointerDown}
-      onMount={onMount}
+      onPointerUp={() => {
+        console.log("StableTldraw :: Pointer Up");
+        pointerUpRef.current?.();
+      }}
+      onPointerDown={() => {
+        console.log("StableTldraw :: Pointer Down");
+        pointerDownRef.current?.();
+      }}
+      onMount={(editor) => {
+        console.log("StableTldraw :: Mounted");
+        onMount(editor);
+      }}
     />
   );
 }, () => true); // Always return true to prevent re-renders
@@ -24,7 +46,6 @@ const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardCon
   const [isEditorMounted, setIsEditorMounted] = useState(false);
   const lastDrawingConfigRef = useRef(null);
   const isDrawingRef = useRef(false);
-  const activeStrokeRef = useRef(null);
   
   // Store callbacks in refs to avoid re-renders
   const drawingUpdatedRef = useRef(drawingUpdated);
@@ -37,62 +58,20 @@ const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardCon
   // Handle pointer down to start tracking a new stroke
   const handlePointerDown = useCallback(() => {
     isDrawingRef.current = true;
-    console.log("Pointer Down: Starting new stroke");
+    console.log("DrawingBoard :: Pointer Down: Starting new stroke");
   }, []);
 
   // Stable callback that doesn't change on re-renders
   const handleDrawingUpdated = useCallback((eventPayload) => {
+    console.log("DrawingBoard :: Sending Update Event :: ", eventPayload);
     if (!drawingUpdatedRef.current) return;
     
-    console.log("DrawingBoard :: Sending Update Event :: ", eventPayload);
     drawingUpdatedRef.current(eventPayload);
     
     if (setDrawings) {
       setDrawings(eventPayload);
     }
   }, [setDrawings]);
-
-  // Listen for editor changes
-  useEffect(() => {
-    if (!isEditorMounted || !editorRef.current) return;
-    const editor = editorRef.current;
-
-    console.log("DrawingBoard :: useEffect (Editor Ready) - Listening for Changes");
-
-    const unsubscribe = editor.store.listen((changes) => {
-      if (!changes.changes) return;
-
-      const { added = {}, updated = {}, removed = {} } = changes.changes;
-
-      // Filter only strokes
-      const addedShapes = Object.values(added).filter(
-        (shape) => shape.type === "draw"
-      );
-      
-      const updatedShapes = Object.values(updated).filter(
-        (shape) => shape.type === "draw"
-      );
-
-      // If we have changes, send them
-      if (addedShapes.length > 0 || updatedShapes.length > 0 || Object.keys(removed).length > 0) {
-        console.log("Changes detected:", { added: addedShapes, updated: updatedShapes, removed: Object.keys(removed) });
-        
-        // Send complete state for better sync
-        const completeState = editor.store.getSnapshot();
-        handleDrawingUpdated({
-          added: addedShapes,
-          updated: updatedShapes,
-          removed: Object.keys(removed),
-          completeState: completeState,
-          source: 'user-action'
-        });
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isEditorMounted, handleDrawingUpdated]);
 
   // Apply received updates with deep equality check
   useEffect(() => {
@@ -135,75 +114,28 @@ const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardCon
     }
   }, [drawingBoardConfig, isEditorMounted]);
 
-  // Stable pointer up handler
+  // Stable pointer up handler - ONLY send updates when stroke is completed
   const handlePointerUp = useCallback(() => {
-    if (!editorRef.current) {
-      console.warn("DrawingBoard :: handlePointerUp: Editor is not ready!");
+    console.log("DrawingBoard :: Pointer Up: Finalizing Stroke");
+    if (!editorRef.current || !isDrawingRef.current) {
       return;
     }
-
-    console.log("Pointer Up: Finalizing Stroke");
+  
     isDrawingRef.current = false;
-    activeStrokeRef.current = null;
-
+  
     const editor = editorRef.current;
-    const shapes = editor.store.query.records("shape").filter(
-      (shape) => shape.type === "draw"
-    );
-
-    if (shapes.length === 0) {
-      console.warn("DrawingBoard :: No strokes found during Pointer Up!");
-      return;
-    }
-
-    const finalizedShapes = shapes.map((shape) => ({
-      ...shape,
-      isComplete: true,
-    }));
-
-    console.log("DrawingBoard :: Finalized Shapes ::", finalizedShapes);
-
-    // Send complete state on pointer up for better sync
-    const completeState = editor.store.getSnapshot();
-    handleDrawingUpdated({ 
-      added: [],
-      updated: finalizedShapes, 
-      removed: [],
-      completeState: completeState,
-      source: 'user-action'
+  
+    // Delay execution to ensure all updates are captured
+    requestAnimationFrame(() => {
+      const completeState = editor.store.getSnapshot();
+  
+      console.log("DrawingBoard :: Sending complete state on stroke completion");
+  
+      if (drawingUpdatedRef.current) {
+        drawingUpdatedRef.current({ completeState });
+      }
     });
-  }, [handleDrawingUpdated]);
-
-  // Handle pointer move to detect active drawing
-  const handlePointerMove = useCallback(() => {
-    if (!editorRef.current || !isDrawingRef.current) return;
-    
-    const editor = editorRef.current;
-    const currentStrokes = editor.store.query.records("shape").filter(
-      (shape) => shape.type === "draw"
-    );
-    
-    if (currentStrokes.length === 0) return;
-    
-    // Find the active stroke (the one being drawn)
-    const activeStroke = currentStrokes[currentStrokes.length - 1];
-    
-    // If this is a new stroke or the stroke has changed, send an update
-    if (!activeStrokeRef.current || activeStroke.id !== activeStrokeRef.current.id || 
-        JSON.stringify(activeStroke.props.points) !== JSON.stringify(activeStrokeRef.current.props.points)) {
-      
-      console.log("Pointer Move: Updating stroke", activeStroke);
-      activeStrokeRef.current = activeStroke;
-      
-      // Send the update with the current state of the active stroke
-      handleDrawingUpdated({
-        added: [],
-        updated: [activeStroke],
-        removed: [],
-        source: 'user-action'
-      });
-    }
-  }, [handleDrawingUpdated]);
+  }, []);
 
   // Stable mount handler
   const handleMount = useCallback((editor) => {
@@ -216,11 +148,7 @@ const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardCon
       if (editorRef.current) {
         const completeState = editor.store.getSnapshot();
         handleDrawingUpdated({
-          added: [],
-          updated: [],
-          removed: [],
-          completeState: completeState,
-          source: 'initial-sync'
+          completeState: completeState
         });
       }
     }, 500);
@@ -231,7 +159,6 @@ const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardCon
       <StableTldraw 
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
-        onPointerMove={handlePointerMove}
         onMount={handleMount}
       />
     </div>

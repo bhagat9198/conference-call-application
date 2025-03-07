@@ -2721,6 +2721,33 @@
     "@tldraw/utils" "3.9.0"
     lodash.isequal "^4.5.0"
 
+"@tldraw/sync-core@3.9.0":
+  version "3.9.0"
+  resolved "https://registry.yarnpkg.com/@tldraw/sync-core/-/sync-core-3.9.0.tgz#49332ca31df645ea76b0536bccf6236190aa758e"
+  integrity sha512-+4Isat3NuhZnNrH+2Te0J+nzWenzHmtTtK1VgetdHOiS8KuDWEfwZNkB+UHU7OQic6gxs65ytX2suey50U4XIA==
+  dependencies:
+    "@tldraw/state" "3.9.0"
+    "@tldraw/store" "3.9.0"
+    "@tldraw/tlschema" "3.9.0"
+    "@tldraw/utils" "3.9.0"
+    lodash.isequal "^4.5.0"
+    nanoevents "^7.0.1"
+    ws "^8.18.0"
+
+"@tldraw/sync@^3.9.0":
+  version "3.9.0"
+  resolved "https://registry.yarnpkg.com/@tldraw/sync/-/sync-3.9.0.tgz#c4861d941748537c04302d40600a169d8c7277fe"
+  integrity sha512-8MtPb2pTTiwcprkv8KtkLVyfbcQsTccphHCTIO59q9JuLwjnAxpWRUgwkqGM6C4ZQaUNltUQBGyrSYcYtqRoRw==
+  dependencies:
+    "@tldraw/state" "3.9.0"
+    "@tldraw/state-react" "3.9.0"
+    "@tldraw/sync-core" "3.9.0"
+    "@tldraw/utils" "3.9.0"
+    lodash.isequal "^4.5.0"
+    nanoevents "^7.0.1"
+    tldraw "3.9.0"
+    ws "^8.18.0"
+
 "@tldraw/tlschema@3.9.0":
   version "3.9.0"
   resolved "https://registry.yarnpkg.com/@tldraw/tlschema/-/tlschema-3.9.0.tgz#2e3c40e64121b5f7faf57dc621f044d9a8e00027"
@@ -8780,6 +8807,11 @@ mz@^2.7.0:
     object-assign "^4.0.1"
     thenify-all "^1.0.0"
 
+nanoevents@^7.0.1:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/nanoevents/-/nanoevents-7.0.1.tgz#181580b47787688d8cac775b977b1cf24e26e570"
+  integrity sha512-o6lpKiCxLeijK4hgsqfR6CNToPyRU3keKyyI6uwuHRvpRTbZ0wXw51WRgyldVugZqoJfkGFrjrIenYH3bfEO3Q==
+
 nanoid@^3.3.8:
   version "3.3.8"
   resolved "https://registry.yarnpkg.com/nanoid/-/nanoid-3.3.8.tgz#b1be3030bee36aaff18bacb375e5cce521684baf"
@@ -11500,7 +11532,7 @@ thunky@^1.0.2:
   resolved "https://registry.yarnpkg.com/thunky/-/thunky-1.1.0.tgz#5abaf714a9405db0504732bbccd2cedd9ef9537d"
   integrity sha512-eHY7nBftgThBqOyHGVN+l8gF0BucP09fMo0oO/Lb0w1OF80dJv+lDVpXG60WMQvkcxAkNybKsrEIE3ZtKGmPrA==
 
-tldraw@^3.8.1:
+tldraw@3.9.0, tldraw@^3.8.1:
   version "3.9.0"
   resolved "https://registry.yarnpkg.com/tldraw/-/tldraw-3.9.0.tgz#d0a54ae136a43e5c5d2f2db59a24fa1fadb4d894"
   integrity sha512-7seniENMLGNN5cXto9ZUK2d3Gu/foW+cqh7XMdIrDRqDCISFr7tIRQVJYOYJwTs5fVnvieGGoJIwZakhUW8TBA==
@@ -12600,7 +12632,7 @@ ws@^7.4.6:
   resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.10.tgz#58b5c20dc281633f6c19113f39b349bd8bd558d9"
   integrity sha512-+dbF1tHwZpXcbOJdVOkzLDxZP1ailvSxM6ZweXTegylPny803bFhA+vqBYw4s31NSAk4S2Qz+AKXK9a4wkdjcQ==
 
-ws@^8.11.0, ws@^8.13.0, ws@^8.5.0:
+ws@^8.11.0, ws@^8.13.0, ws@^8.18.0, ws@^8.5.0:
   version "8.18.1"
   resolved "https://registry.yarnpkg.com/ws/-/ws-8.18.1.tgz#ea131d3784e1dfdff91adb0a4a116b127515e3cb"
   integrity sha512-RKW2aJZMXeMxVpnZ6bck+RswznaxmzdULiBr6KY7XkTnW8uvt0iT9H5DkHUChXrc+uurzwa0rVI16n/Xzjdz1w==
