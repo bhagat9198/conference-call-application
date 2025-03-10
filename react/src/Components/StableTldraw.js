@@ -5,11 +5,11 @@ import "tldraw/tldraw.css";
 const StableTldraw = memo(function StableTldraw({ drawingBoardConfig, drawingUpdated }) {
   const editorRef = useRef(null);
   const configRef = useRef(drawingBoardConfig); // Store previous config
-  
+  const drawingInProgressRef = useRef({});
   // Use useEffect to log only on initial render
-  useEffect(() => {
-    console.log("StableTldraw :: Initial Render Only :: ", drawingBoardConfig);
-  }, []);
+  // useEffect(() => {
+  //   console.log("StableTldraw :: Initial Render Only :: ", drawingBoardConfig);
+  // }, []);
   
   // Handle config updates with useEffect
   useEffect(() => {
@@ -91,7 +91,99 @@ const StableTldraw = memo(function StableTldraw({ drawingBoardConfig, drawingUpd
 
   // Memoize the change handler to prevent re-renders
   const handleChange = useCallback((event) => {
-    console.log("StableTldraw :: Local change detected", event);
+    // console.log("StableTldraw :: Event received:", event);
+    
+    // Track drawing state using pointer events and shape updates
+    if (event.source === 'user') {
+      // Check if this is a drawing-related event by examining all changes
+      const hasDrawingUpdates = 
+        // Check in updated shapes
+        (event.changes?.updated && 
+          Object.entries(event.changes.updated).some(([id, shape]) => 
+            id !== 'pointer:pointer' && (shape?.type === 'draw' || id.startsWith('shape:'))
+          )) ||
+        // Also check in added shapes
+        (event.changes?.added && 
+          Object.entries(event.changes.added).some(([id, shape]) => 
+            shape?.type === 'draw' || id.startsWith('shape:')
+          ));
+      
+      console.log("StableTldraw :: hasDrawingUpdates:", hasDrawingUpdates);
+      
+      // If we have drawing updates, capture the current state
+      if (hasDrawingUpdates) {
+        try {
+          // Get all shapes from the editor using the correct method
+          const allShapes = editorRef.current.store.allRecords().filter(record => 
+            record.typeName === 'shape'
+          );
+          console.log("StableTldraw :: All shapes:", allShapes);
+          
+          // Find draw shapes
+          const drawShapes = {};
+          allShapes.forEach(shape => {
+            if (shape.type === 'draw') {
+              // Check if the shape is complete or being tracked as in-progress
+              // if (shape.props?.isComplete === true || drawingInProgressRef.current[shape.id]) {
+                drawShapes[shape.id] = shape;
+                console.log("StableTldraw :: Draw shape found:", shape.id, shape);
+              // }
+            }
+          });
+          
+          // Find completed shapes that weren't previously sent
+          const completedShapes = {};
+          Object.entries(drawShapes).forEach(([id, shape]) => {
+            if (shape.props?.isComplete === true && drawingInProgressRef.current[id]) {
+              completedShapes[id] = shape;
+              // Remove from in-progress tracking
+              delete drawingInProgressRef.current[id];
+            } else if (!shape.props?.isComplete) {
+              // Track in-progress shape
+              drawingInProgressRef.current[id] = shape;
+            }
+          });
+          
+          // If we have completed shapes, send them now
+          if (Object.keys(completedShapes).length > 0) {
+            console.log("StableTldraw :: Sending completed shapes", completedShapes);
+            drawingUpdated({
+              changes: {
+                added: completedShapes, // Send as added instead of updated for clarity
+                updated: {},
+                removed: {}
+              },
+              source: "user",
+              isCompleteStroke: true
+            });
+            
+            // Don't send the original event
+            return;
+          }
+        } catch (err) {
+          console.error("Error processing drawing updates:", err);
+        }
+      }
+      
+      // Handle shape deletions
+      if (event.changes?.removed && Object.keys(event.changes.removed).length > 0) {
+        console.log("StableTldraw :: Sending removal event");
+        drawingUpdated(event);
+        return;
+      }
+    }
+    
+    // Don't send pointer events or intermediate drawing updates
+    if (event.changes?.updated && 
+        (Object.keys(event.changes.updated).length === 1 && 
+         event.changes.updated['pointer:pointer'] ||
+         Object.entries(event.changes.updated).some(([id, shape]) => 
+           id !== 'pointer:pointer' && shape?.type === 'draw' && !shape.props?.isComplete
+         ))) {
+      return;
+    }
+    
+    // For other events, send as normal
     drawingUpdated(event);
   }, [drawingUpdated]);
 
