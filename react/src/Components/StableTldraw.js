@@ -23,22 +23,68 @@ const StableTldraw = memo(function StableTldraw({ drawingBoardConfig, drawingUpd
           // Handle complete state update
           console.log("StableTldraw :: Applying complete state update");
           editorRef.current.store.loadSnapshot(drawingBoardConfig.completeState);
-        } else if (drawingBoardConfig.changes) {
-          // Handle changes format
-          console.log("StableTldraw :: Applying changes format update");
-          const changes = {
-            added: drawingBoardConfig.changes.added || {},
-            updated: drawingBoardConfig.changes.updated || {},
-            removed: drawingBoardConfig.changes.removed || {}
-          };
-          editorRef.current.store.mergeRemoteChanges(changes);
         } else {
-          // Handle legacy format
-          console.log("StableTldraw :: Applying legacy format update");
-          editorRef.current.store.mergeRemoteChanges(drawingBoardConfig);
+          // Extract the changes - handle both direct properties and nested changes
+          const added = drawingBoardConfig.added || 
+                       (drawingBoardConfig.changes && drawingBoardConfig.changes.added) || {};
+          const updated = drawingBoardConfig.updated || 
+                         (drawingBoardConfig.changes && drawingBoardConfig.changes.updated) || {};
+          const removed = drawingBoardConfig.removed || 
+                         (drawingBoardConfig.changes && drawingBoardConfig.changes.removed) || {};
+          
+          // Filter out pointer updates as they don't affect the drawing
+          const filteredUpdated = {...updated};
+          if (filteredUpdated['pointer:pointer']) {
+            delete filteredUpdated['pointer:pointer'];
+          }
+          
+          // Only apply changes if there's something meaningful to apply
+          if (Object.keys(added).length > 0 || 
+              Object.keys(filteredUpdated).length > 0 || 
+              Object.keys(removed).length > 0) {
+            
+            console.log("StableTldraw :: Applying changes:", { 
+              added, 
+              updated: filteredUpdated, 
+              removed 
+            });
+            
+            // Try a different approach to apply changes
+            try {
+              // Apply each added shape individually
+              Object.entries(added).forEach(([id, shape]) => {
+                console.log(`Adding shape: ${id}`);
+                editorRef.current.createShapes([shape]);
+              });
+              
+              // Apply each updated shape individually
+              Object.entries(filteredUpdated).forEach(([id, shape]) => {
+                console.log(`Updating shape: ${id}`);
+                if (editorRef.current.getShape(id)) {
+                  editorRef.current.updateShapes([shape]);
+                }
+              });
+              
+              // Remove each shape individually
+              Object.keys(removed).forEach((id) => {
+                console.log(`Removing shape: ${id}`);
+                if (editorRef.current.getShape(id)) {
+                  editorRef.current.deleteShapes([id]);
+                }
+              });
+            } catch (innerErr) {
+              console.error("Failed with direct shape manipulation, trying mergeRemoteChanges:", innerErr);
+              // Fallback to mergeRemoteChanges if the direct approach fails
+              editorRef.current.store.mergeRemoteChanges({
+                added,
+                updated: filteredUpdated,
+                removed
+              });
+            }
+          }
         }
       } catch (err) {
-        console.error("Failed to apply drawing config:", err);
+        console.error("Failed to apply drawing config:", err, drawingBoardConfig);
       }
     }
   }, [drawingBoardConfig]);
