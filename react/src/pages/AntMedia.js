@@ -1666,70 +1666,83 @@ function AntMedia(props) {
 
     function drawingUpdated(config) {
         console.log("drawingUpdated :: DRAWING_UPDATED :: config :: ", config);
-        
-        // Always send the complete state immediately
-        // This ensures all peers have the same drawing state
-        handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+        if (config.changes) {
+            const { added, removed, updated } = config.changes;
+            
+            // Only proceed if there are actual shape changes (not just pointer movements)
+            const hasAdded = added && Object.keys(added).length > 0;
+            const hasRemoved = removed && Object.keys(removed).length > 0;
+            const hasUpdatedShapes = updated && Object.keys(updated).filter(key => key !== 'pointer').length > 0;
+            
+            if (hasAdded || hasRemoved ) {
+                console.log("drawingUpdated :: DRAWING_UPDATED ::  real changed :: ", config);
+                // Only send notification when actual drawing content changes
+                handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+            }
+        } else if (config.completeState) {
+            // Always send complete state updates
+            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+        }
     }
 
-    function drawingUpdatedOnEveryChange(config) {
-        console.log("drawingUpdated :: DRAWING_UPDATED :: config :: ", config);
+    // function drawingUpdatedOnEveryChange(config) {
+    //     console.log("drawingUpdated :: DRAWING_UPDATED :: config :: ", config);
         
-        // Check if this is a complete state update
-        const isCompleteStateUpdate = config.completeState !== undefined;
+    //     // Check if this is a complete state update
+    //     const isCompleteStateUpdate = config.completeState !== undefined;
         
-        // For complete state updates, send immediately without throttling
-        if (isCompleteStateUpdate) {
-            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
-            return;
-        }
+    //     // For complete state updates, send immediately without throttling
+    //     if (isCompleteStateUpdate) {
+    //         handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+    //         return;
+    //     }
         
-        // For active drawing updates (when a stroke is being drawn), send immediately
-        if (config.updated && config.updated.length > 0 && config.updated.some(shape => !shape.isComplete)) {
-            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, {
-                added: [],
-                updated: config.updated,
-                removed: []
-            });
-            return;
-        }
+    //     // For active drawing updates (when a stroke is being drawn), send immediately
+    //     if (config.updated && config.updated.length > 0 && config.updated.some(shape => !shape.isComplete)) {
+    //         handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, {
+    //             added: [],
+    //             updated: config.updated,
+    //             removed: []
+    //         });
+    //         return;
+    //     }
         
-        // Throttle regular updates to avoid overwhelming the network
-        if (!drawingUpdateThrottleTimeout.current) {
-            // Send the update immediately
-            handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
+    //     // Throttle regular updates to avoid overwhelming the network
+    //     if (!drawingUpdateThrottleTimeout.current) {
+    //         // Send the update immediately
+    //         handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, config);
             
-            // Set a throttle timeout
-            drawingUpdateThrottleTimeout.current = setTimeout(() => {
-                drawingUpdateThrottleTimeout.current = null;
+    //         // Set a throttle timeout
+    //         drawingUpdateThrottleTimeout.current = setTimeout(() => {
+    //             drawingUpdateThrottleTimeout.current = null;
                 
-                // Process any queued updates
-                if (drawingUpdateQueue.current.length > 0) {
-                    // Combine all queued updates into one
-                    const combinedUpdate = {
-                        added: [],
-                        updated: [],
-                        removed: []
-                    };
+    //             // Process any queued updates
+    //             if (drawingUpdateQueue.current.length > 0) {
+    //                 // Combine all queued updates into one
+    //                 const combinedUpdate = {
+    //                     added: [],
+    //                     updated: [],
+    //                     removed: []
+    //                 };
                     
-                    drawingUpdateQueue.current.forEach(update => {
-                        if (update.added) combinedUpdate.added.push(...update.added);
-                        if (update.updated) combinedUpdate.updated.push(...update.updated);
-                        if (update.removed) combinedUpdate.removed.push(...update.removed);
-                    });
+    //                 drawingUpdateQueue.current.forEach(update => {
+    //                     if (update.added) combinedUpdate.added.push(...update.added);
+    //                     if (update.updated) combinedUpdate.updated.push(...update.updated);
+    //                     if (update.removed) combinedUpdate.removed.push(...update.removed);
+    //                 });
                     
-                    // Send the combined update
-                    handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, combinedUpdate);
+    //                 // Send the combined update
+    //                 handleSendNotificationEvent("DRAWING_UPDATED", publishStreamId, combinedUpdate);
                     
-                    // Clear the queue
-                    drawingUpdateQueue.current = [];
-                }
-            }, 50);
-        } else {
-            // If we're throttled, queue the update
-            drawingUpdateQueue.current.push(config);
-        }
-    }
+    //                 // Clear the queue
+    //                 drawingUpdateQueue.current = [];
+    //             }
+    //         }, 50);
+    //     } else {
+    //         // If we're throttled, queue the update
+    //         drawingUpdateQueue.current.push(config);
+    //     }
+    // }
 
     React.useEffect(() => {
         if (isPlayOnly && enterDirectly && initialized) {
@@ -2977,13 +2990,6 @@ function AntMedia(props) {
             } else if (eventType === "DRAWING_ENDED") {
                 setDrawingBoard(false);
             } else if (eventType === "DRAWING_UPDATED") {
-                // console.log("handleNotificationEvent :: DRAWING_UPDATED :: ", notificationEvent);
-                // setDrawingBoardConfig({
-                //     added: notificationEvent.added,
-                //     updated: notificationEvent.updated,
-                //     removed: notificationEvent.removed
-                // });
-
                 console.log("handleNotificationEvent :: DRAWING_UPDATED :: ", notificationEvent);
                 
                 // Check if we received a complete state update
@@ -2991,15 +2997,33 @@ function AntMedia(props) {
                     setDrawingBoardConfig({
                         completeState: notificationEvent.completeState
                     });
+                } else if (notificationEvent.changes) {
+                    // Handle the new format with changes object
+                    setDrawingBoardConfig({
+                        added: notificationEvent.changes.added || {},
+                        updated: notificationEvent.changes.updated || {},
+                        removed: notificationEvent.changes.removed || {}
+                    });
+                    
+                    // Store the complete drawing state for future new participants
+                    if (notificationEvent.changes.added && Object.keys(notificationEvent.changes.added).length > 0) {
+                        setDrawings(prevDrawings => {
+                            const newDrawings = { ...prevDrawings };
+                            // Add new shapes to the stored drawings
+                            Object.entries(notificationEvent.changes.added).forEach(([id, shape]) => {
+                                newDrawings[id] = shape;
+                            });
+                            return newDrawings;
+                        });
+                    }
                 } else {
                     // Fallback to the old format for backward compatibility
                     setDrawingBoardConfig({
-                        added: notificationEvent.added,
-                        updated: notificationEvent.updated,
-                        removed: notificationEvent.removed
+                        added: notificationEvent.added || {},
+                        updated: notificationEvent.updated || {},
+                        removed: notificationEvent.removed || {}
                     });
                 }
-                
             }
         }
     }

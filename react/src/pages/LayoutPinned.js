@@ -28,7 +28,7 @@ function LayoutPinned(props) {
 
   const showOthers = Object.keys(props.allParticipants).length > trackCount + 1; //one video is pinned
 
-  props.updateMaxVideoTrackCount(showOthers ? trackCount - 1 : trackCount);
+  // props.updateMaxVideoTrackCount(showOthers ? trackCount - 1 : trackCount);
 
 
   let playingParticipantsCount = 0;
