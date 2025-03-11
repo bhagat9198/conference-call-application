@@ -210,6 +210,33 @@ form {
   width: 100%;
 }
 
+/* tldraw */
+button.tlui-button.tlui-button__tool[aria-label="tool.arrow"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool[aria-label="tool.text"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool[aria-label="tool.note"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool[aria-label="tool.asset"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool[aria-label="tool.rectangle"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool[aria-label="tool.ellipse"] {
+  display: none !important;
+}
+button.tlui-button.tlui-button__tool.tlui-toolbar__overflow {
+  display: none !important;
+}
+button.tlui-button.tlui-button__menu.tlui-page-menu__trigger {
+  display: none !important;
+}
+
+
 @media (max-width: 900px) {
   .App-header {
     padding: 16px;
