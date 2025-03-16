@@ -45,8 +45,6 @@ const getCustomizedGridStyle = (theme) => {
 const CustomizedGrid = styled(Grid)(({ theme }) => (getCustomizedGridStyle(theme)));
 
 function Footer(props) {
-  console.log("Footer :::::: ");
-  
   // eslint-disable-next-line
   const id = (isComponentMode()) ? getRootAttribute("data-room-name") : useParams().id;
 

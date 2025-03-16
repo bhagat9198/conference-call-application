@@ -1003,7 +1003,7 @@ function AntMedia(props) {
 
         // Calculate the packet loss percentage
         let packageLostPercentage = 0;
-        console.log("publishStats:", publishStats.current);
+        // console.log("publishStats:", publishStats.current);
         if (publishStats.current !== null) {
             let deltaPackageLost = oldTotalPacketsLost - totalPacketsLost;
             let deltaPackageReceived = oldPackageReceived - packageReceived;
@@ -1996,7 +1996,7 @@ function AntMedia(props) {
         }
 
         let updatedPlayStats = { totalPacketsLost: totalPacketsLost, videoPacketsLost: videoPacketsLost, audioPacketsLost: audioPacketsLost, totalBytesReceived: totalBytesReceived, incomingBitrate: incomingBitrate, inboundRtpList: obj.inboundRtpList };
-        console.log("playStats:", updatedPlayStats);
+        // console.log("AntMedia :: checkConnectionQualityForPlay :: playStats:", updatedPlayStats);
         playStats.current = updatedPlayStats;
     }
 
@@ -2009,7 +2009,7 @@ function AntMedia(props) {
         let packageSent = parseInt(obj.totalVideoPacketsSent) + parseInt(obj.totalAudioPacketsSent);
 
         let packageLostPercentage = 0;
-        console.log("publishStats:", publishStats.current);
+        // console.log("publishStats:", publishStats.current);
         if (publishStats.current !== null) {
             let deltaPackageLost = packageLost - publishStats.current.packageLost;
             let deltaPackageSent = packageSent - publishStats.current.packageSent;
@@ -2609,11 +2609,13 @@ function AntMedia(props) {
     }, [isPlayOnly]);
 
     function handleNotificationEvent(obj) {
-        console.log("AntMedia :: handleNotificationEvent :: obj :: ", obj);
+        // console.log("AntMedia :: handleNotificationEvent :: obj :: ", obj);
         
         var notificationEvent = JSON.parse(obj.data);
-        if(notificationEvent.eventType != "AUDIO_TRACK_ASSIGNMENT") {
-            console.log("AntMedia :: handleNotificationEvent :: notificationEvent :: aaa :: ", notificationEvent);
+        if(notificationEvent.eventType != "AUDIO_TRACK_ASSIGNMENT" ||
+            notificationEvent.eventType != "VIDEO_TRACK_ASSIGNMENT_LIST" 
+        ) {
+            console.log("AntMedia :: handleNotificationEvent :: notificationEvent :: ", notificationEvent);
         }
         
         //console.log("handleNotificationEvent:", notificationEvent);
@@ -2748,7 +2750,7 @@ function AntMedia(props) {
 
                 let receivedVideoTrackAssignments = notificationEvent.payload;
 
-                console.info("VIDEO_TRACK_ASSIGNMENT_LIST -> ", JSON.stringify(receivedVideoTrackAssignments));
+                // console.info("VIDEO_TRACK_ASSIGNMENT_LIST -> ", JSON.stringify(receivedVideoTrackAssignments));
 
                 const previousStreamIds = videoTrackAssignments
                 .filter(vta => !vta.isMine && vta.streamId)
@@ -2759,7 +2761,7 @@ function AntMedia(props) {
                 .map(vta => vta.trackId);
 
                 if (newStreamIds.length > 0 && drawingBoard && publishStreamId) {
-                    console.log("New participants detected in track assignments, sending DRAWING_STARTED event");
+                    // console.log("New participants detected in track assignments, sending DRAWING_STARTED event");
                     setTimeout(() => {
                         handleSendNotificationEvent("DRAWING_STARTED", roomName, {
                             senderStreamId: publishStreamId
@@ -3075,7 +3077,7 @@ function AntMedia(props) {
         //then unpin it. It may leave for example in schreen share
         if (!isNull(currentPinInfo)) {
             let broadcastObject = broadcastObjectsArray.find(el => el.streamId == currentPinInfo.streamId);
-            console.log("sill " + currentPinInfo.streamId + " broadcastObject:", broadcastObject)
+            // console.log("AntMedia :: checkScreenSharingStatus :: " + currentPinInfo.streamId + " broadcastObject:", broadcastObject)
             if (isNull(broadcastObject) || (broadcastObject.status == IN_CACHE && Date.now() - broadcastObject.statusUpdateTime > 3000)) {
                 unpinVideo();
             }

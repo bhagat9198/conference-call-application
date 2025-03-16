@@ -90,14 +90,14 @@ const MeetingRoom = React.memo((props) => {
     }
   }
 
-  console.log('MeetingRoom :: props.allParticipants :: ', props.allParticipants);
-  console.log('MeetingRoom :: props.currentPinInfo :: ', props.currentPinInfo);
+  // console.log('MeetingRoom :: props.allParticipants :: ', props.allParticipants);
+  // console.log('MeetingRoom :: props.currentPinInfo :: ', props.currentPinInfo);
 
   const pinnedParticipant = props?.allParticipants[props.currentPinInfo?.streamId]
-  console.log('MeetingRoom :: pinnedParticipant :: ', pinnedParticipant);
+  // console.log('MeetingRoom :: pinnedParticipant :: ', pinnedParticipant);
 
   const pinLayout = (typeof pinnedParticipant !== "undefined");
-  console.log('MeetingRoom :: pinLayout :: ', pinLayout);
+  // console.log('MeetingRoom :: pinLayout :: ', pinLayout);
 
 
   /* istanbul ignore next */

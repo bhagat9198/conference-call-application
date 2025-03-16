@@ -8,7 +8,7 @@ import DrawingBoard from "Components/DrawingBoard";
 import { Box } from "@mui/material";
 
 function LayoutPinned(props) {
-  console.log("LayoutPinned :: props :: ", props);
+  // console.log("LayoutPinned :: props :: ", props);
 
   // Find the pinned participant in videoTrackAssignments or use the original pinnedParticipant prop
   const pinnedParticipantInTracks = props.videoTrackAssignments.find(e => e.streamId === props.pinnedParticipant?.streamId);
@@ -19,8 +19,8 @@ function LayoutPinned(props) {
                               (props.pinnedParticipant?.streamId && 
                                props.pinnedParticipant.streamId.includes('drawing_board'));
 
-  console.log("LayoutPinned :: pinnedParticipant after fix :: ", pinnedParticipant);
-  console.log("LayoutPinned :: isDrawingBoardPinned :: ", isDrawingBoardPinned);
+  // console.log("LayoutPinned :: pinnedParticipant after fix :: ", pinnedParticipant);
+  // console.log("LayoutPinned :: isDrawingBoardPinned :: ", isDrawingBoardPinned);
 
   let MAX_VIDEO_AT_SIDE = 4;
 
@@ -52,8 +52,6 @@ function LayoutPinned(props) {
   const playingParticipants = [];
 
   const pinnedVideo = () => {
-    console.log("LayoutPinned :: pinnedVideo :: ");
-    
     let pinnedParticipantName;
     if (pinnedParticipant !== undefined) {
       // Only add to playing participants if it's in videoTrackAssignments
@@ -224,8 +222,6 @@ export default LayoutPinned;
 
 
 const MemoizedDrawingBoard =React.memo((props) => {
-  console.log("MemoizedDrawingBoard :: props :: ", props);
-
   return (
     <DrawingBoard
       key="drawing-board-instance"

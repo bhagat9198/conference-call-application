@@ -84,7 +84,7 @@ const StableTldraw = memo(function StableTldraw({ drawingBoardConfig, drawingUpd
           }
         }
       } catch (err) {
-        console.error("Failed to apply drawing config:", err, drawingBoardConfig);
+        console.error("S Failed to apply drawing config:", err, drawingBoardConfig);
       }
     }
   }, [drawingBoardConfig]);

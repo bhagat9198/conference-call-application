@@ -19,7 +19,7 @@ const StableTldraw = memo(function StableTldraw({ onPointerUp, onMount, onPointe
 
 // Use memo to prevent unnecessary re-renders
 const DrawingBoard = memo(function DrawingBoard({ width, height, drawingBoardConfig, drawingUpdated, drawings, setDrawings }) {
-  console.log("DrawingBoard :: Rendering");
+  // console.log("DrawingBoard :: Rendering");
   
   const editorRef = useRef(null);
   const [isEditorMounted, setIsEditorMounted] = useState(false);
